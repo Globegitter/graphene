@@ -16,7 +16,7 @@ else:
 # machinery.
 builtins.__SETUP__ = True
 
-version = '1.0lev'
+version = '1.0mev'
 
 
 class PyTest(TestCommand):
