@@ -13,7 +13,7 @@ class Episode(graphene.Enum):
 class Character(graphene.Interface):
     id = graphene.ID()
     name = graphene.String()
-    friends = graphene.List('Character')
+    friends = graphene.List(lambda: Character)
     appears_in = graphene.List(Episode)
 
     def resolve_friends(self, args, *_):
@@ -21,17 +21,23 @@ class Character(graphene.Interface):
         return [get_character(f) for f in self.friends]
 
 
-class Human(Character):
+class Human(graphene.ObjectType):
+
+    class Meta:
+        interfaces = (Character, )
     home_planet = graphene.String()
 
 
-class Droid(Character):
+class Droid(graphene.ObjectType):
+
+    class Meta:
+        interfaces = (Character, )
     primary_function = graphene.String()
 
 
 class Query(graphene.ObjectType):
     hero = graphene.Field(Character,
-                          episode=graphene.Argument(Episode)
+                          episode=Episode()
                           )
     human = graphene.Field(Human,
                            id=graphene.String()
@@ -53,4 +59,4 @@ class Query(graphene.ObjectType):
         return get_droid(id)
 
 
-Schema = graphene.Schema(query=Query)
+schema = graphene.Schema(query=Query)

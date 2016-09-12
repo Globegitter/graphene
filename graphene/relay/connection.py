@@ -1,87 +1,140 @@
-from collections import Iterable
+import re
+from collections import Iterable, OrderedDict
+from functools import partial
 
-from graphql_relay.connection.arrayconnection import connection_from_list
+import six
 
-from ..core.classtypes import ObjectType
-from ..core.types import Field, Boolean, String, List
-from ..utils import memoize
+from graphql_relay import connection_from_list
+
+from ..types import Boolean, Int, List, String, AbstractType
+from ..types.field import Field
+from ..types.objecttype import ObjectType, ObjectTypeMeta
+from ..types.options import Options
+from ..utils.is_base_type import is_base_type
+from ..utils.props import props
+from .node import Node, is_node
 
 
 class PageInfo(ObjectType):
-
-    def __init__(self, start_cursor="", end_cursor="",
-                 has_previous_page=False, has_next_page=False, **kwargs):
-        super(PageInfo, self).__init__(**kwargs)
-        self.startCursor = start_cursor
-        self.endCursor = end_cursor
-        self.hasPreviousPage = has_previous_page
-        self.hasNextPage = has_next_page
-
-    hasNextPage = Boolean(
+    has_next_page = Boolean(
         required=True,
-        description='When paginating forwards, are there more items?')
-    hasPreviousPage = Boolean(
+        name='hasNextPage',
+        description='When paginating forwards, are there more items?',
+    )
+
+    has_previous_page = Boolean(
         required=True,
-        description='When paginating backwards, are there more items?')
-    startCursor = String(
-        description='When paginating backwards, the cursor to continue.')
-    endCursor = String(
-        description='When paginating forwards, the cursor to continue.')
+        name='hasPreviousPage',
+        description='When paginating backwards, are there more items?',
+    )
+
+    start_cursor = String(
+        name='startCursor',
+        description='When paginating backwards, the cursor to continue.',
+    )
+
+    end_cursor = String(
+        name='endCursor',
+        description='When paginating forwards, the cursor to continue.',
+    )
 
 
-class Edge(ObjectType):
-    '''An edge in a connection.'''
-    cursor = String(
-        required=True, description='A cursor for use in pagination')
+class ConnectionMeta(ObjectTypeMeta):
 
-    @classmethod
-    @memoize
-    def for_node(cls, node):
-        node_field = Field(node, description='The item at the end of the edge')
-        return type(
-            '%s%s' % (node._meta.type_name, cls._meta.type_name),
-            (cls,),
-            {'node_type': node, 'node': node_field})
+    def __new__(cls, name, bases, attrs):
+        # Also ensure initialization is only performed for subclasses of Model
+        # (excluding Model class itself).
+        if not is_base_type(bases, ConnectionMeta):
+            return type.__new__(cls, name, bases, attrs)
+
+        options = Options(
+            attrs.pop('Meta', None),
+            name=None,
+            description=None,
+            node=None,
+        )
+        options.interfaces = ()
+        options.local_fields = OrderedDict()
+
+        assert options.node, 'You have to provide a node in {}.Meta'.format(cls.__name__)
+        assert issubclass(options.node, (Node, ObjectType)), (
+            'Received incompatible node "{}" for Connection {}.'
+        ).format(options.node, name)
+
+        base_name = re.sub('Connection$', '', name)
+        if not options.name:
+            options.name = '{}Connection'.format(base_name)
+
+        edge_class = attrs.pop('Edge', None)
+
+        class EdgeBase(AbstractType):
+            node = Field(options.node, description='The item at the end of the edge')
+            cursor = String(required=True, description='A cursor for use in pagination')
+
+        edge_name = '{}Edge'.format(base_name)
+        if edge_class and issubclass(edge_class, AbstractType):
+            edge = type(edge_name, (EdgeBase, edge_class, ObjectType, ), {})
+        else:
+            edge_attrs = props(edge_class) if edge_class else {}
+            edge = type(edge_name, (EdgeBase, ObjectType, ), edge_attrs)
+
+        class ConnectionBase(AbstractType):
+            page_info = Field(PageInfo, name='pageInfo', required=True)
+            edges = List(edge)
+
+        bases = (ConnectionBase, ) + bases
+        attrs = dict(attrs, _meta=options, Edge=edge)
+        return ObjectTypeMeta.__new__(cls, name, bases, attrs)
 
 
-class Connection(ObjectType):
-    '''A connection to a list of items.'''
+class Connection(six.with_metaclass(ConnectionMeta, ObjectType)):
+    pass
 
-    def __init__(self, edges, page_info, **kwargs):
-        super(Connection, self).__init__(**kwargs)
-        self.edges = edges
-        self.pageInfo = page_info
 
-    class Meta:
-        type_name = 'DefaultConnection'
+class IterableConnectionField(Field):
 
-    pageInfo = Field(PageInfo, required=True,
-                     description='The Information to aid in pagination')
+    def __init__(self, type, *args, **kwargs):
+        super(IterableConnectionField, self).__init__(
+            type,
+            *args,
+            before=String(),
+            after=String(),
+            first=Int(),
+            last=Int(),
+            **kwargs
+        )
 
-    _connection_data = None
+    @property
+    def type(self):
+        type = super(IterableConnectionField, self).type
+        if is_node(type):
+            connection_type = type.Connection
+        else:
+            connection_type = type
+        assert issubclass(connection_type, Connection), (
+            '{} type have to be a subclass of Connection. Received "{}".'
+        ).format(str(self), connection_type)
+        return connection_type
 
-    @classmethod
-    @memoize
-    def for_node(cls, node, edge_type=None):
-        edge_type = edge_type or Edge.for_node(node)
-        edges = List(edge_type, description='Information to aid in pagination.')
-        return type(
-            '%s%s' % (node._meta.type_name, cls._meta.type_name),
-            (cls,),
-            {'edge_type': edge_type, 'edges': edges})
-
-    @classmethod
-    def from_list(cls, iterable, args, context, info):
-        assert isinstance(
-            iterable, Iterable), 'Resolved value from the connection field have to be iterable'
+    @staticmethod
+    def connection_resolver(resolver, connection, root, args, context, info):
+        iterable = resolver(root, args, context, info)
+        assert isinstance(iterable, Iterable), (
+            'Resolved value from the connection field have to be iterable. '
+            'Received "{}"'
+        ).format(iterable)
         connection = connection_from_list(
-            iterable, args, connection_type=cls,
-            edge_type=cls.edge_type, pageinfo_type=PageInfo)
-        connection.set_connection_data(iterable)
+            iterable,
+            args,
+            connection_type=connection,
+            edge_type=connection.Edge,
+            pageinfo_type=PageInfo
+        )
+        connection.iterable = iterable
         return connection
 
-    def set_connection_data(self, data):
-        self._connection_data = data
+    def get_resolver(self, parent_resolver):
+        resolver = super(IterableConnectionField, self).get_resolver(parent_resolver)
+        return partial(self.connection_resolver, resolver, self.type)
 
-    def get_connection_data(self):
-        return self._connection_data
+ConnectionField = IterableConnectionField

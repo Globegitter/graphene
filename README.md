@@ -1,3 +1,8 @@
+You are in the `next` unreleased version of Graphene (`1.0.dev`).
+Please read [UPGRADE-v1.0.md](/UPGRADE-v1.0.md) to learn how to upgrade.
+
+---
+
 # ![Graphene Logo](http://graphene-python.org/favicon.png) [Graphene](http://graphene-python.org) [![Build Status](https://travis-ci.org/graphql-python/graphene.svg?branch=master)](https://travis-ci.org/graphql-python/graphene) [![PyPI version](https://badge.fury.io/py/graphene.svg)](https://badge.fury.io/py/graphene) [![Coverage Status](https://coveralls.io/repos/graphql-python/graphene/badge.svg?branch=master&service=github)](https://coveralls.io/github/graphql-python/graphene?branch=master)
 
 
@@ -18,12 +23,16 @@ Graphene also supports *SQLAlchemy*!
 For instaling graphene, just run this command in your shell
 
 ```bash
-pip install graphene
+pip install graphene>=1.0.dev
 # In case of need Django model support
-pip install graphene[django]
+pip install graphene-django>=1.0.dev
 # Or in case of need SQLAlchemy support
-pip install graphene[sqlalchemy]
+pip install graphene-sqlalchemy>=1.0.dev
 ```
+
+## 1.0 Upgrade Guide
+
+Please read [UPGRADE-v1.0.md](/UPGRADE-v1.0.md) to learn how to upgrade.
 
 
 ## Examples
@@ -36,10 +45,10 @@ class Query(graphene.ObjectType):
     ping = graphene.String(description='Ping someone',
                            to=graphene.String())
 
-    def resolve_hello(self, args, info):
+    def resolve_hello(self, args, context, info):
         return 'World'
 
-    def resolve_ping(self, args, info):
+    def resolve_ping(self, args, context, info):
         return 'Pinging {}'.format(args.get('to'))
 
 schema = graphene.Schema(query=Query)
@@ -61,8 +70,6 @@ If you want to learn even more, you can also check the following [examples](exam
 
 * **Basic Schema**: [Starwars example](examples/starwars)
 * **Relay Schema**: [Starwars Relay example](examples/starwars_relay)
-* **Django model mapping**: [Starwars Django example](examples/starwars_django)
-* **SQLAlchemy model mapping**: [Flask SQLAlchemy example](examples/flask_sqlalchemy)
 
 
 ## Contributing

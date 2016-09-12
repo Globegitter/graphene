@@ -1,3 +1,9 @@
+You are in the ``next`` unreleased version of Graphene (``1.0.dev``).
+Please read `UPGRADE-v1.0.md </UPGRADE-v1.0.md>`__ to learn how to
+upgrade.
+
+--------------
+
 |Graphene Logo| `Graphene <http://graphene-python.org>`__ |Build Status| |PyPI version| |Coverage Status|
 =========================================================================================================
 
@@ -28,11 +34,17 @@ For instaling graphene, just run this command in your shell
 
 .. code:: bash
 
-    pip install graphene
+    pip install graphene>=1.0.dev
     # In case of need Django model support
-    pip install graphene[django]
+    pip install graphene-django>=1.0.dev
     # Or in case of need SQLAlchemy support
-    pip install graphene[sqlalchemy]
+    pip install graphene-sqlalchemy>=1.0.dev
+
+1.0 Upgrade Guide
+-----------------
+
+Please read `UPGRADE-v1.0.md </UPGRADE-v1.0.md>`__ to learn how to
+upgrade.
 
 Examples
 --------
@@ -46,10 +58,10 @@ Here is one example for get you started:
         ping = graphene.String(description='Ping someone',
                                to=graphene.String())
 
-        def resolve_hello(self, args, info):
+        def resolve_hello(self, args, context, info):
             return 'World'
 
-        def resolve_ping(self, args, info):
+        def resolve_ping(self, args, context, info):
             return 'Pinging {}'.format(args.get('to'))
 
     schema = graphene.Schema(query=Query)
@@ -72,10 +84,6 @@ If you want to learn even more, you can also check the following
 -  **Basic Schema**: `Starwars example <examples/starwars>`__
 -  **Relay Schema**: `Starwars Relay
    example <examples/starwars_relay>`__
--  **Django model mapping**: `Starwars Django
-   example <examples/starwars_django>`__
--  **SQLAlchemy model mapping**: `Flask SQLAlchemy
-   example <examples/flask_sqlalchemy>`__
 
 Contributing
 ------------

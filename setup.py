@@ -3,6 +3,21 @@ import sys
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
 
+if sys.version_info[0] < 3:
+    import __builtin__ as builtins
+else:
+    import builtins
+
+# This is a bit (!) hackish: we are setting a global variable so that the main
+# graphql __init__ can detect if it is being loaded by the setup routine, to
+# avoid attempting to load components that aren't built yet:
+# the numpy distutils extensions that are used by scikit-learn to recursively
+# build the compiled extensions in sub-packages is based on the Python import
+# machinery.
+builtins.__SETUP__ = True
+
+version = __import__('graphene').get_version()
+
 
 class PyTest(TestCommand):
     user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
@@ -24,7 +39,7 @@ class PyTest(TestCommand):
 
 setup(
     name='graphene',
-    version='0.10.3',
+    version=version,
 
     description='GraphQL Framework for Python',
     long_description=open('README.rst').read(),
@@ -55,31 +70,22 @@ setup(
 
     install_requires=[
         'six>=1.10.0',
-        'graphql-core>=0.5.1',
-        'graphql-relay>=0.4.2',
-        'iso8601',
+        'graphql-core>=1.0.dev',
+        'graphql-relay>=0.4.4',
+        'promise',
     ],
     tests_require=[
-        'django-filter>=0.10.0',
         'pytest>=2.7.2',
-        'pytest-django',
-        'sqlalchemy',
-        'sqlalchemy_utils',
+        'pytest-benchmark',
         'mock',
-        # Required for Django postgres fields testing
-        'psycopg2',
     ],
     extras_require={
         'django': [
-            'Django>=1.6.0',
-            'singledispatch>=3.4.0.3',
-            'graphql-django-view>=1.3',
+            'graphene-django',
         ],
         'sqlalchemy': [
-            'sqlalchemy',
-            'singledispatch>=3.4.0.3',
+            'graphene-sqlalchemy',
         ]
     },
-
     cmdclass={'test': PyTest},
 )

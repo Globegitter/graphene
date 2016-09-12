@@ -71,5 +71,6 @@ def test_mutations():
         }
     }
     result = schema.execute(query)
+    # raise result.errors[0].original_error, None, result.errors[0].stack
     assert not result.errors
     assert result.data == expected

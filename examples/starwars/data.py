@@ -53,7 +53,7 @@ def setup():
         '1004': tarkin,
     }
 
-    threepio = Droid(
+    c3po = Droid(
         id='2000',
         name='C-3PO',
         friends=['1000', '1002', '1003', '2001'],
@@ -61,7 +61,7 @@ def setup():
         primary_function='Protocol',
     )
 
-    artoo = Droid(
+    r2d2 = Droid(
         id='2001',
         name='R2-D2',
         friends=['1000', '1002', '1003'],
@@ -70,8 +70,8 @@ def setup():
     )
 
     droid_data = {
-        '2000': threepio,
-        '2001': artoo,
+        '2000': c3po,
+        '2001': r2d2,
     }
 
 
